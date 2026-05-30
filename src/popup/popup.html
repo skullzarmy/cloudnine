@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=340, initial-scale=1" />
+        <title>Cloudnine</title>
+        <link rel="stylesheet" href="./popup.css" />
+    </head>
+    <body>
+        <header class="cn-header">
+            <div class="cn-brand">
+                <img class="cn-logo-mark" src="/public/icons/cloud9-logo.svg" alt="" />
+                <img class="cn-logo-text" src="/public/icons/cloud9-text.svg" alt="Cloudnine" />
+            </div>
+            <span class="cn-version" id="cn-version"></span>
+        </header>
+
+        <!-- Enable -->
+        <section class="cn-section">
+            <div class="cn-toggle-row">
+                <label class="cn-switch">
+                    <input type="checkbox" id="activeToggle" />
+                    <span class="cn-slider"></span>
+                </label>
+                <div class="cn-toggle-label">
+                    <span>Enable Cloudnine</span>
+                    <span class="cn-toggle-sub">Inject Buy buttons on bsky.app</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Wallet -->
+        <section class="cn-section">
+            <div class="cn-section-title">Wallet</div>
+            <div id="cn-wallet-connected" class="cn-wallet-card hidden">
+                <span class="cn-wallet-addr" id="cn-wallet-addr"></span>
+                <button class="cn-btn cn-btn-danger" id="cn-disconnect">Disconnect</button>
+            </div>
+            <div id="cn-wallet-empty" class="cn-wallet-empty">
+                <span>Not connected</span>
+                <span class="cn-hint">Click a Buy button on any post to connect your wallet</span>
+            </div>
+        </section>
+
+        <!-- Purchase history -->
+        <section class="cn-section cn-section-history">
+            <div class="cn-section-title">Purchases</div>
+            <div id="cn-history-list" class="cn-history-list"></div>
+            <div id="cn-history-empty" class="cn-empty hidden">No purchases yet</div>
+        </section>
+
+        <footer class="cn-footer">
+            &lt;&lt; a FAFO<s>lab</s> joint &gt;&gt;
+        </footer>
+
+        <script type="module" src="./popup.js"></script>
+    </body>
+</html>

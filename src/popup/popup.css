@@ -1,0 +1,310 @@
+:root {
+    --bg:         #0f1419;
+    --bg-card:    #161b22;
+    --bg-elev:    #1d242c;
+    --text:       #e6edf3;
+    --text-dim:   #8b949e;
+    --accent:     #1185fe;
+    --accent-hover: #0b6fdc;
+    --danger:     #f85149;
+    --success:    #2ea043;
+    --border:     #30363d;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg:       #ffffff;
+        --bg-card:  #f6f8fa;
+        --bg-elev:  #ffffff;
+        --text:     #1f2328;
+        --text-dim: #656d76;
+        --border:   #d0d7de;
+    }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    width: 340px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* Header */
+.cn-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cn-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cn-logo-mark {
+    height: 24px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
+.cn-logo-text {
+    height: 12px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+}
+
+@media (prefers-color-scheme: light) {
+    .cn-logo-mark { filter: brightness(0); opacity: 0.85; }
+    .cn-logo-text { filter: brightness(0); }
+}
+
+.cn-version {
+    font-family: monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.7;
+}
+
+/* Sections */
+.cn-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cn-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+}
+
+/* Enable toggle */
+.cn-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cn-switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+}
+.cn-switch input { opacity: 0; width: 0; height: 0; }
+
+.cn-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    transition: background 0.18s, border-color 0.18s;
+}
+.cn-slider::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 14px;
+    height: 14px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: transform 0.18s, background 0.18s;
+}
+.cn-switch input:checked + .cn-slider {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.cn-switch input:checked + .cn-slider::before {
+    background: #fff;
+    transform: translateX(16px);
+}
+
+.cn-toggle-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.cn-toggle-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+/* Wallet */
+.cn-wallet-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.cn-wallet-addr {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text);
+    word-break: break-all;
+}
+
+.cn-wallet-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    color: var(--text-dim);
+}
+
+.cn-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.7;
+}
+
+/* History */
+.cn-section-history {
+    border-bottom: none;
+    padding-bottom: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.cn-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cn-history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.cn-history-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--bg-elev);
+}
+
+.cn-history-thumb-fb {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    background: var(--bg-elev);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--text-dim);
+}
+
+.cn-history-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.cn-history-name {
+    font-weight: 600;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cn-history-detail {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 1px;
+}
+
+.cn-history-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cn-empty {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 12px 0 4px;
+}
+
+/* Buttons */
+.cn-btn {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font: 600 11px/1.2 inherit;
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+}
+.cn-btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+}
+.cn-btn-ghost:hover { background: var(--bg-elev); }
+.cn-btn-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.cn-btn-danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.cn-btn-share {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+.cn-btn-share:hover { background: var(--accent-hover); }
+
+.cn-bsky-icon {
+    height: 12px;
+    width: 12px;
+    filter: brightness(0) invert(1);
+    flex-shrink: 0;
+}
+
+/* hidden utility */
+.hidden { display: none !important; }
+
+/* Footer */
+.cn-footer {
+    text-align: center;
+    padding: 8px 14px 10px;
+    border-top: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    letter-spacing: 0.05em;
+}
+.cn-footer s { display: inline; }

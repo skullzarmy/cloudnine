@@ -1,0 +1,494 @@
+/* Cloudnine — injected styles for the Buy button on bsky.app
+ *
+ * Placement: .cn-buy-wrap is inserted immediately after the post's content
+ * section (contentHider-post in feed / unnamed contentDiv in thread), before
+ * the reply/like/repost action row. This puts the button visually below the
+ * link card and above the action icons.
+ *
+ * z-index: bsky renders a transparent position:fixed full-viewport overlay
+ * for post-click navigation. We set position:relative + z-index on the wrap
+ * so our button stacks above that overlay and receives click events.
+ */
+
+.cn-buy-wrap {
+    display: block;
+    padding: 6px 0 2px;
+    flex-shrink: 0;    /* don't let the flex column crush us */
+    /* Stack above bsky's transparent fixed click-capture overlay */
+    position: relative;
+    z-index: 9999;
+}
+
+.cn-buy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    background: #0085ff;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.12s ease, transform 0.06s ease;
+    user-select: none;
+    white-space: nowrap;
+    /* Ensure pointer events reach this button even under overlays */
+    pointer-events: all;
+    position: relative;
+    z-index: 9999;
+}
+
+.cn-buy-logo {
+    height: 14px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+    flex-shrink: 0;
+}
+
+/* Hide logo on disabled/error states where branding doesn't belong */
+.cn-buy-btn.cn-state-disabled .cn-buy-logo,
+.cn-buy-btn.cn-state-error .cn-buy-logo,
+.cn-buy-btn[disabled] .cn-buy-logo {
+    display: none;
+}
+
+.cn-buy-btn:hover {
+    background: #0068cc;
+}
+
+.cn-buy-btn:active {
+    transform: translateY(1px);
+}
+
+/* Loading — muted while listing API call is in flight */
+.cn-buy-btn.cn-state-loading {
+    background: #8a9aa8;
+    border-color: transparent;
+    cursor: progress;
+}
+
+/* No active listing */
+.cn-buy-btn.cn-state-disabled,
+.cn-buy-btn.cn-state-error,
+.cn-buy-btn[disabled] {
+    background: transparent;
+    border-color: #8a9aa8;
+    color: #8a9aa8;
+    cursor: not-allowed;
+}
+
+.cn-buy-btn.cn-state-disabled::before,
+.cn-buy-btn.cn-state-error::before {
+    content: "";
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    .cn-buy-btn {
+        background: #1d9bf0;
+        color: #fff;
+    }
+    .cn-buy-btn:hover {
+        background: #1a8cd8;
+    }
+    .cn-buy-btn.cn-state-loading {
+        background: #3a4a59;
+    }
+    .cn-buy-btn.cn-state-disabled,
+    .cn-buy-btn.cn-state-error,
+    .cn-buy-btn[disabled] {
+        background: transparent;
+        border-color: #4a5a68;
+        color: #4a5a68;
+    }
+}
+
+/* ==========================================================================
+   In-page Buy Modal
+   ========================================================================== */
+
+/* hidden utility — must be defined here so dynamic modal HTML can use it */
+.cn-modal-dialog .hidden { display: none !important; }
+
+.cn-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647; /* max z-index */
+    background: rgba(0, 0, 0, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.cn-modal-dialog {
+    background: #0f1419;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+
+.cn-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #30363d;
+}
+
+.cn-modal-brand {
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cn-modal-logo-mark {
+    height: 28px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
+.cn-modal-logo-text {
+    height: 14px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    margin-left: 2px;
+}
+
+.cn-modal-footer {
+    text-align: center;
+    padding: 8px 16px 12px;
+    font-family: monospace;
+    font-size: 10px;
+    color: #3a4a58;
+    letter-spacing: 0.05em;
+    border-top: 1px solid #1d242c;
+    white-space: nowrap;
+}
+.cn-modal-footer s { display: inline; color: #2e3e4e; }
+
+.cn-modal-x {
+    background: none;
+    border: none;
+    color: #8b949e;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    border-radius: 4px;
+}
+.cn-modal-x:hover { color: #e6edf3; background: #1d242c; }
+
+.cn-modal-body {
+    padding: 16px;
+}
+
+.cn-modal-token {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.cn-modal-thumb {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    background: #1d242c;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.cn-modal-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cn-modal-thumb-fb { color: #8b949e; font-size: 20px; }
+
+.cn-modal-meta { flex: 1; min-width: 0; }
+.cn-modal-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn-modal-artist { color: #8b949e; font-size: 13px; margin-top: 2px; }
+.cn-modal-source { color: #8b949e; font-size: 12px; margin-top: 6px; text-transform: lowercase; }
+
+.cn-modal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 4px;
+    border-bottom: 1px solid #30363d;
+}
+
+.cn-modal-price-row { border-bottom: 1px solid #30363d; }
+.cn-modal-label { color: #8b949e; font-size: 13px; }
+.cn-modal-price { font-size: 22px; font-weight: 700; }
+.cn-modal-value { font-size: 14px; }
+
+/* Wallet row */
+.cn-modal-wallet-row { align-items: flex-start; }
+.cn-modal-wallet-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.cn-modal-addr { font-family: monospace; font-size: 13px; text-align: right; word-break: break-all; }
+.cn-modal-wallet-btns { display: flex; gap: 6px; }
+
+.cn-modal-mini {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #30363d;
+    background: transparent;
+    color: #e6edf3;
+    font: 600 11px/1.4 -apple-system, sans-serif;
+    cursor: pointer;
+}
+.cn-modal-mini:hover { background: #161b22; }
+.cn-modal-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+.cn-modal-mini-danger { border-color: #f85149; color: #f85149; }
+.cn-modal-mini-danger:hover { background: rgba(248,81,73,0.1); }
+
+/* Status */
+.cn-modal-status {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    font-size: 13px;
+}
+.cn-modal-status-error  { border-color: #f85149; color: #f85149; }
+.cn-modal-status-success { border-color: #2ea043; color: #2ea043; }
+
+/* Actions */
+.cn-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+.cn-modal-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font: 600 14px/1 -apple-system, sans-serif;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.cn-modal-btn:active { transform: translateY(1px); }
+.cn-modal-btn-primary {
+    background: #1185fe;
+    color: #fff;
+    border-color: #1185fe;
+}
+.cn-modal-btn-primary:hover:not(:disabled) { background: #0b6fdc; border-color: #0b6fdc; }
+.cn-modal-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.cn-modal-btn-ghost {
+    background: transparent;
+    color: #e6edf3;
+    border-color: #30363d;
+}
+.cn-modal-btn-ghost:hover { background: #161b22; }
+
+/* Receipt */
+.cn-modal-receipt {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    gap: 8px;
+}
+.cn-modal-link {
+    color: #1185fe;
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cn-modal-link:hover { text-decoration: underline; }
+
+/* Post-broadcast pending screen */
+.cn-modal-pending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 28px 16px 20px;
+    gap: 12px;
+}
+.cn-modal-pending-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #30363d;
+    border-top-color: #1185fe;
+    border-radius: 50%;
+    animation: cn-spin 0.8s linear infinite;
+}
+@keyframes cn-spin { to { transform: rotate(360deg); } }
+.cn-modal-pending-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #e6edf3;
+}
+.cn-modal-pending-sub {
+    font-size: 13px;
+    color: #8b949e;
+}
+.cn-modal-pending-op {
+    font-family: monospace;
+    font-size: 12px;
+    color: #8b949e;
+    text-decoration: none;
+}
+.cn-modal-pending-op:hover { color: #1185fe; text-decoration: underline; }
+
+/* Post-purchase success screen — receipt aesthetic, no gradient nonsense */
+.cn-modal-success {
+    margin: 16px;
+    border: 1px dashed #555;
+    border-radius: 4px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.cn-modal-success-receipt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px 16px 16px;
+    gap: 8px;
+    border-bottom: 1px dashed #555;
+}
+
+.cn-modal-success-thumb {
+    width: 100px;
+    height: 100px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid #30363d;
+    margin-bottom: 4px;
+}
+
+.cn-modal-success-headline {
+    font-family: monospace;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.cn-modal-success-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8b949e;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-modal-success-op {
+    font-family: monospace;
+    font-size: 11px;
+    color: #555;
+    text-decoration: none;
+    margin-top: 4px;
+}
+.cn-modal-success-op:hover { color: #8b949e; }
+
+.cn-modal-success-footer {
+    padding: 10px 16px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 10px;
+    color: #555;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+.cn-modal-success-footer s,
+.cn-modal-footer s {
+    display: inline;
+    color: #444;
+}
+
+.cn-modal-success-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px 16px;
+}
+
+.cn-modal-btn-share {
+    background: #1185fe;
+    color: #fff;
+    border-color: #1185fe;
+    font-size: 15px;
+    padding: 14px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.cn-modal-btn-share:hover { background: #0b6fdc; border-color: #0b6fdc; }
+
+.cn-bsky-icon {
+    height: 16px;
+    width: 16px;
+    /* SVG uses currentColor (black); force white to sit on the blue button */
+    filter: brightness(0) invert(1);
+    flex-shrink: 0;
+}
+
+/* light mode */
+@media (prefers-color-scheme: light) {
+    .cn-modal-dialog   { background: #ffffff; color: #1f2328; border-color: #d0d7de; }
+    .cn-modal-header   { border-color: #d0d7de; }
+    .cn-modal-token    { background: #f6f8fa; border-color: #d0d7de; }
+    .cn-modal-thumb    { background: #eaeef2; }
+    .cn-modal-row      { border-color: #d0d7de; }
+    .cn-modal-price-row { border-color: #d0d7de; }
+    .cn-modal-label    { color: #656d76; }
+    .cn-modal-artist   { color: #656d76; }
+    .cn-modal-source   { color: #656d76; }
+    .cn-modal-addr     { color: #1f2328; }
+    .cn-modal-mini     { color: #1f2328; border-color: #d0d7de; }
+    .cn-modal-mini:hover { background: #f6f8fa; }
+    .cn-modal-status   { background: #f6f8fa; border-color: #d0d7de; }
+    .cn-modal-receipt  { background: #f6f8fa; border-color: #d0d7de; }
+    .cn-modal-btn-ghost { color: #1f2328; border-color: #d0d7de; }
+    .cn-modal-btn-ghost:hover { background: #f6f8fa; }
+    .cn-modal-x        { color: #656d76; }
+    .cn-modal-x:hover         { color: #1f2328; background: #f6f8fa; }
+    .cn-modal-success          { border-color: #d0d7de; }
+    .cn-modal-success-receipt  { border-color: #d0d7de; }
+    .cn-modal-success-headline { color: #1f2328; }
+    .cn-modal-success-name     { color: #656d76; }
+    .cn-modal-success-thumb    { border-color: #d0d7de; }
+    .cn-modal-success-op       { color: #aaa; }
+    .cn-modal-success-footer   { color: #aaa; }
+    .cn-modal-logo-mark        { filter: brightness(0); opacity: 0.8; }
+    .cn-modal-logo-text        { filter: brightness(0); opacity: 0.8; }
+    .cn-modal-footer           { color: #ccc; border-color: #eee; }
+    .cn-modal-footer s         { color: #bbb; }
+}

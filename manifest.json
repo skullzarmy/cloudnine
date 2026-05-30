@@ -1,0 +1,48 @@
+{
+    "manifest_version": 3,
+    "name": "Cloudnine",
+    "short_name": "Cloudnine",
+    "version": "0.4.0",
+    "description": "Buy Tezos NFTs (Teia, objkt) inline on bsky.app — a FAFO Lab joint.",
+    "permissions": ["storage", "scripting"],
+    "host_permissions": [
+        "https://bsky.app/*",
+        "https://data.objkt.com/*",
+        "https://api.tzkt.io/*",
+        "https://ipfs.fileship.xyz/*"
+    ],
+    "action": {
+        "default_popup": "src/popup/popup.html",
+        "default_title": "Cloudnine",
+        "default_icon": {
+            "16": "public/icons/icon-off-16.png",
+            "48": "public/icons/icon-off-48.png",
+            "128": "public/icons/icon-off-128.png"
+        }
+    },
+    "icons": {
+        "16": "public/icons/icon-on-16.png",
+        "48": "public/icons/icon-on-48.png",
+        "128": "public/icons/icon-on-128.png"
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://bsky.app/*"],
+            "js": ["src/content/content.js"],
+            "css": ["src/content/content.css"],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["public/icons/*"],
+            "matches": ["https://bsky.app/*"]
+        }
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "cloudnine@fafolab.xyz",
+            "strict_min_version": "115.0"
+        }
+    }
+}
