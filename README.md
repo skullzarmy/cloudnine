@@ -23,6 +23,10 @@ Cloudnine is a browser extension that watches your Bluesky feed for links to Tez
 - **Mainnet only.**
 - **Auctions skipped.** English/Dutch auctions live on separate contracts and aren't supported yet.
 
+## ⚠️ Known issues
+
+- **Firefox + web wallets (Kukai):** on Firefox, connecting a **web wallet** like Kukai doesn't work — the Beacon pairing dialog never finishes rendering its "Use Browser" action. This is a content-script limitation in the wallet SDK (octez.connect): it hands pairing data to its UI across Firefox's content-script/page compartment boundary, which Firefox blocks (`Permission denied to access property "then"`). **Use an extension wallet (Temple) on Firefox.** Chrome is unaffected — all wallets work there. Details + upstream report: [`docs/octez-connect-firefox-issue.md`](docs/octez-connect-firefox-issue.md).
+
 ## 📥 Install (dev / load-unpacked)
 
 ```bash
