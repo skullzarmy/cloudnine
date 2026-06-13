@@ -124,6 +124,16 @@ export async function openBuyModal({ parsed, listing, settings: settingsOverride
 // HTML builder
 // ---------------------------------------------------------------------------
 
+// Escape values that flow into innerHTML. Token name / artist / thumb come from
+// third-party marketplace APIs and render inside bsky.app's page, so an unescaped
+// `<img onerror=…>` in a token name would be XSS. Static markup stays literal;
+// only untrusted values pass through here.
+function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]),
+    );
+}
+
 function buildModalHTML(dialog, listing, parsed, settings) {
     const name = listing?.token?.name || "Tezos NFT";
     const artist = listing?.token?.artist ?? null;
@@ -160,8 +170,8 @@ function buildModalHTML(dialog, listing, parsed, settings) {
             <div class="cn-modal-token">
                 <div class="cn-modal-thumb" id="cn-m-thumb"><span class="cn-modal-thumb-fb">…</span></div>
                 <div class="cn-modal-meta">
-                    <div class="cn-modal-title">${name}</div>
-                    ${artistDisplay ? `<div class="cn-modal-artist">${artistDisplay}</div>` : ""}
+                    <div class="cn-modal-title">${escapeHtml(name)}</div>
+                    ${artistDisplay ? `<div class="cn-modal-artist">${escapeHtml(artistDisplay)}</div>` : ""}
                     ${sourceLabel  ? `<div class="cn-modal-source">${sourceLabel}</div>` : ""}
                 </div>
             </div>
@@ -443,7 +453,7 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
                 const row = document.createElement("button");
                 row.className = "cn-pair-row";
                 row.innerHTML = `
-                    ${w.image ? `<img src="${w.image}" alt="" />` : `<span class="cn-pair-row-fb"></span>`}
+                    ${w.image ? `<img src="${escapeHtml(w.image)}" alt="" />` : `<span class="cn-pair-row-fb"></span>`}
                     <span class="cn-pair-row-meta">
                         <span class="cn-pair-name"></span>
                         <span class="cn-pair-badge">${badge}</span>
@@ -528,10 +538,10 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
                 <div class="cn-modal-pending-title">Confirming…</div>
                 <div class="cn-modal-pending-sub">${subtitle}</div>
                 <a class="cn-modal-pending-op"
-                   href="https://tzkt.io/${opHash}"
+                   href="https://tzkt.io/${escapeHtml(opHash)}"
                    target="_blank" rel="noreferrer noopener"
-                   title="${opHash}">
-                   op: ${opHash.slice(0, 8)}…${opHash.slice(-6)}
+                   title="${escapeHtml(opHash)}">
+                   op: ${escapeHtml(opHash.slice(0, 8))}…${escapeHtml(opHash.slice(-6))}
                 </a>
             </div>
         `;
@@ -548,13 +558,13 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
         body.innerHTML = `
             <div class="cn-modal-success">
                 <div class="cn-modal-success-receipt">
-                    ${thumb ? `<img class="cn-modal-success-thumb" src="${thumb}" alt="" />` : ""}
+                    ${thumb ? `<img class="cn-modal-success-thumb" src="${escapeHtml(thumb)}" alt="" />` : ""}
                     <div class="cn-modal-success-headline">IT'S YOURS!!</div>
-                    <div class="cn-modal-success-name">${name}</div>
+                    <div class="cn-modal-success-name">${escapeHtml(name)}</div>
                     <a class="cn-modal-success-op"
-                       href="https://tzkt.io/${opHash}"
+                       href="https://tzkt.io/${escapeHtml(opHash)}"
                        target="_blank" rel="noreferrer noopener"
-                       title="${opHash}">op: ${opHash.slice(0, 8)}…${opHash.slice(-6)}</a>
+                       title="${escapeHtml(opHash)}">op: ${escapeHtml(opHash.slice(0, 8))}…${escapeHtml(opHash.slice(-6))}</a>
                 </div>
             </div>
             <div class="cn-modal-success-actions">
