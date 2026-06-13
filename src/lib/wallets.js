@@ -13,8 +13,12 @@
  * because that module isn't part of the package's public exports.
  */
 
-import bundledRegistry from "@tezos-x/octez.connect-ui/data/tezos.json";
-import { PostMessageTransport } from "@tezos-x/octez.connect-transport-postmessage";
+// Our own copy of the canonical Beacon wallet registry (originally from
+// airgap-it/beacon-wallet-list, the same source the SDK ships). Bundled so the
+// build needs nothing beyond published npm packages; refreshed at runtime from
+// the CDN below. Keeping it local also means we don't depend on a wallet-list
+// export path that only exists in unreleased SDK builds.
+import bundledRegistry from "./wallet-registry.json";
 
 // Indices into MergedWallet.links — mirrors octez.connect-ui's OSLink enum.
 export const OSLink = { WEB: 0, IOS: 1, DESKTOP: 2, EXTENSION: 3 };
@@ -162,17 +166,13 @@ let _walletsPromise = null;
 
 /**
  * Resolve the merged wallet list once per page session. Uses the freshest data
- * available (GitHub if reachable, else the SDK's bundled registry) and folds in
- * any browser extensions detected on the page.
+ * available — the canonical GitHub/CDN list if reachable, else our bundled copy.
  */
 export function loadWallets() {
     if (!_walletsPromise) {
         _walletsPromise = (async () => {
-            const [github, exts] = await Promise.all([
-                fetchGithubRegistry(),
-                PostMessageTransport.getAvailableExtensions().catch(() => []),
-            ]);
-            return toMergedWallets(github || bundledRegistry, exts || []);
+            const github = await fetchGithubRegistry();
+            return toMergedWallets(github || bundledRegistry, []);
         })();
     }
     return _walletsPromise;

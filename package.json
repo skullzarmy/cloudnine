@@ -11,7 +11,7 @@
     },
     "dependencies": {
         "@taquito/taquito": "^21.0.0",
-        "@tezos-x/octez.connect-sdk": "^5.0.0-beta.6",
+        "@tezos-x/octez.connect-sdk": "4.8.5",
         "qrcode-svg": "^1.1.0",
         "webextension-polyfill": "^0.12.0"
     },

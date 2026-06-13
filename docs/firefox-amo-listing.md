@@ -96,15 +96,16 @@ upload the source archive when prompted.
 extension. Entry points: `src/content/content.js`, `src/content/buy-modal.js`,
 `src/popup/popup.js`; manifest at `manifest.json`.
 
-> ⚠️ **Build-reproducibility blocker — resolve before submitting.** The current build
-> depends on a fix to `@tezos-x/octez.connect-sdk` that is **not yet published to npm**
-> (Trilitech octez.connect PR #39 — the Firefox content-script pairing fix). Our working
-> `node_modules` is overlaid with a build of that branch. A clean `npm install` pulls the
-> published `5.0.0-beta.6`, which does **not** contain the fix, so a reviewer's build will
-> **not match** the submitted XPI. Pick one before AMO submission:
->   1. Wait for the fix to land on npm (PR #39 merged + released), then pin that exact version; or
->   2. Vendor the patched octez.connect packages into the repo and point `package.json` at them (`file:`), so `npm install && npm run build` is fully reproducible from the checkout.
-> Submitting before this is fixed will fail/loop AMO review.
+**Fully reproducible from a clean checkout.** All dependencies resolve from the public
+npm registry (`@tezos-x/octez.connect-sdk` is pinned to the published `4.8.5`; see
+`package-lock.json`). There is no forked, vendored, or git-sourced executable dependency.
+The Firefox web-wallet pairing fix is implemented in *our own* code, not a patched SDK:
+on Firefox the SDK's built-in pairing dialog runs in a separate content-script realm and
+can't read the Beacon peer-info promises, so we disable that dialog and render our own
+wallet picker (`src/content/buy-modal.js` + `src/lib/wallets.js`), reading the promises in
+the content-script compartment ourselves. `src/lib/wallet-registry.json` is a bundled
+copy of the public Beacon wallet list (airgap-it/beacon-wallet-list) — data only,
+human-readable — refreshed at runtime from the canonical CDN.
 
 **No remote code execution.** All executable code ships in the package. The extension
 fetches data (listings, images, the public wallet list JSON) but never loads or `eval`s
