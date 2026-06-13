@@ -23,8 +23,9 @@ import {
 // Indices into MergedWallet.links — mirrors octez.connect-ui's OSLink enum.
 export const OSLink = { WEB: 0, IOS: 1, DESKTOP: 2, EXTENSION: 3 };
 
-// Same default featured ordering the SDK uses.
-const FEATURED = ["kukai", "temple", "plenty", "umami"];
+// Wallets floated to the top of the picker (matched by key prefix). All four
+// exist in the shipped SDK's list.
+const FEATURED = ["kukai", "temple", "umami", "altme"];
 
 export const getTzip10Link = (url, payload) =>
     `${url}?type=tzip10&data=${payload}`;
@@ -94,24 +95,22 @@ function arrangeTopWallets(arr, ids) {
     return [...top.filter(Boolean), ...rest];
 }
 
-// --- transform raw registry → Wallet[] (mirrors useWallets) ------------------
+// --- transform the SDK's per-OS registry → merged Wallet[] -------------------
 
-function toMergedWallets(reg, availableExtensions) {
+function toMergedWallets(reg) {
     const extensions = (reg.extensionList || []).map((w) => ({
         id: w.id, key: w.key, name: w.shortName, image: w.logo,
         description: "Browser Extension",
         supportedInteractionStandards: w.supportedInteractionStandards,
         type: "extension", link: w.link, deprecated: w.deprecated,
     }));
-    const desktop = (reg.desktopList || [])
-        .filter((w) => !availableExtensions.some((e) => w.name === e.name))
-        .map((w) => ({
-            id: w.key, key: w.key, name: w.shortName, image: w.logo,
-            description: "Desktop App",
-            supportedInteractionStandards: w.supportedInteractionStandards,
-            type: "desktop", link: w.downloadLink, deepLink: w.deepLink,
-            deprecated: w.deprecated,
-        }));
+    const desktop = (reg.desktopList || []).map((w) => ({
+        id: w.key, key: w.key, name: w.shortName, image: w.logo,
+        description: "Desktop App",
+        supportedInteractionStandards: w.supportedInteractionStandards,
+        type: "desktop", link: w.downloadLink, deepLink: w.deepLink,
+        deprecated: w.deprecated,
+    }));
     const ios = (reg.iOSList || []).map((w) => ({
         id: w.key, key: w.key, name: w.shortName, image: w.logo,
         description: "Mobile App",
@@ -125,25 +124,11 @@ function toMergedWallets(reg, availableExtensions) {
         supportedInteractionStandards: w.supportedInteractionStandards,
         type: "web", link: w.links?.mainnet, deprecated: w.deprecated,
     }));
-    // Extensions actually detected on the page that aren't in the static list.
-    const detected = (availableExtensions || [])
-        .filter((e) => !(reg.extensionList || []).some((w) => w.id === e.id))
-        .map((e) => ({
-            id: e.id, key: e.id, name: e.shortName ?? e.name ?? "",
-            image: e.iconUrl ?? "", description: "Browser Extension",
-            type: "extension", link: e.link ?? "",
-        }));
 
-    const all = [...desktop, ...extensions, ...ios, ...web, ...detected];
-    const merged = mergeWallets(parseWallets(all)).filter((wl) => {
-        if (!wl.deprecated) return true;
-        // Keep deprecated extensions only if actually installed.
-        if (wl.types.includes("extension"))
-            return availableExtensions.some(
-                (e) => e.id === wl.id || e.id === wl.firefoxId,
-            );
-        return true;
-    });
+    const merged = mergeWallets(parseWallets([...desktop, ...extensions, ...ios, ...web]))
+        // We don't probe for installed extensions, so hide deprecated extension
+        // wallets (useless if not installed) but keep other deprecated entries.
+        .filter((wl) => !wl.deprecated || !wl.types.includes("extension"));
     return arrangeTopWallets(merged, FEATURED);
 }
 
@@ -184,7 +169,7 @@ let _walletsPromise = null;
  */
 export function loadWallets() {
     if (!_walletsPromise) {
-        _walletsPromise = (async () => toMergedWallets(await readSdkRegistry(), []))();
+        _walletsPromise = (async () => toMergedWallets(await readSdkRegistry()))();
     }
     return _walletsPromise;
 }

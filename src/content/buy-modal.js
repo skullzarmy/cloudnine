@@ -43,7 +43,7 @@ const MODAL_HOST_ID = "cn-buy-modal-host";
 // We override ONLY the PAIR_INIT event, read those promises in our own
 // compartment (verified working on Firefox), and render our own wallet chooser.
 // Every other default event/UI (permission, operation, success/error) is left
-// intact. See docs/octez-connect-firefox-issue.md.
+// intact.
 // The open modal registers a callback here so this module-scope handler can hand
 // the resolved sync codes back to it for rendering. Only one modal is open at a
 // time, so a single slot is enough.
@@ -72,7 +72,7 @@ function getClient() {
             // We never use WalletConnect — pairing here is postMessage/P2P only.
             // The WC transport throws in Firefox's isolated content-script ("Xray")
             // compartment. Skipping it leaves postMessage/P2P working on both
-            // browsers. See docs/octez-connect-firefox-issue.md.
+            // browsers.
             disableWalletConnect: true,
             // Replace only the pairing UI with our own headless chooser (above).
             eventHandlers: {
