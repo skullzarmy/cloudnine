@@ -260,29 +260,28 @@
 .cn-modal-mini-danger:hover { background: rgba(248,81,73,0.1); }
 
 /* Headless wallet picker (our pairing UI) */
-.cn-pair { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; height: min(68vh, 560px); }
-.cn-pair-head { display: flex; align-items: center; justify-content: space-between; flex: none; }
+.cn-pair { display: flex; flex-direction: column; gap: 12px; padding: 6px 2px 2px; height: min(70vh, 580px); }
+.cn-pair-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
 .cn-pair-title { font-size: 15px; font-weight: 700; color: #e6edf3; }
 .cn-pair-status { font-size: 12px; color: #8b949e; min-height: 16px; flex: none; text-align: center; }
 .cn-pair-status-on { color: #1d9bf0; }
 
-/* QR — pinned to the top ~40% of the picker, always visible */
+/* QR — sits at the top, sized to fit with breathing room; list fills the rest */
 .cn-pair-qr-top {
-    flex: 0 0 40%;
-    min-height: 0;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    gap: 12px;
+    padding: 6px 0 2px;
 }
 .cn-pair-qr {
     position: relative;
-    width: min(190px, 52vw);
+    width: min(176px, 54vw);
     aspect-ratio: 1 / 1;
     background: #fff;
-    padding: 8px;
-    border-radius: 12px;
+    padding: 11px;
+    border-radius: 14px;
     box-sizing: border-box;
 }
 .cn-pair-qr svg { display: block; width: 100%; height: 100%; }

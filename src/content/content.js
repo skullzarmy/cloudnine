@@ -30,16 +30,52 @@
 
 import { parseMarketplaceUrl } from "../lib/parsers.js";
 import { resolveListing } from "../lib/resolver.js";
-import { getSettings, onSettingsChanged } from "../lib/storage.js";
+import { getSettings, setSettings, onSettingsChanged } from "../lib/storage.js";
 
 const TAG = "Cloudnine";
 const BUTTON_CLASS = "cn-buy-btn";
 const PROCESSED_ATTR = "data-cn-processed";
 
+// Bump when a release ships a storage-breaking change (e.g. an SDK swap). Any
+// origin whose stored marker doesn't match gets a one-time pairing-state flush.
+const STATE_VERSION = "1";
+
 let isEnabled = true;
 let cachedSettings = null;
 
+/**
+ * One-time, per-origin flush of stale wallet-pairing state on upgrade.
+ *
+ * octez.connect (Beacon) keeps its pairing, active account, and keypair in THIS
+ * origin's localStorage under `beacon:*`. After an update — especially an SDK
+ * swap — an old/incompatible session can stick and fail silently until it's
+ * manually cleared. We gate the flush on a version marker stored in the same
+ * (per-origin) localStorage, so a valid session is only reset when we actually
+ * ship a breaking change (bump STATE_VERSION). New installs just get the marker.
+ *
+ * @returns {boolean} true if state was flushed this run.
+ */
+function migrateOriginState() {
+    try {
+        if (localStorage.getItem("cn:stateVersion") === STATE_VERSION) return false;
+        Object.keys(localStorage)
+            .filter((k) => k.startsWith("beacon:"))
+            .forEach((k) => localStorage.removeItem(k));
+        localStorage.setItem("cn:stateVersion", STATE_VERSION);
+        return true;
+    } catch {
+        return false; // private-mode / blocked storage — nothing to migrate
+    }
+}
+
 (async function init() {
+    // Clear any stale pairing state before the buy modal (and its DAppClient)
+    // can read it. Drop the cached connected-wallet display so the popup doesn't
+    // show a connection that no longer pairs.
+    if (migrateOriginState()) {
+        setSettings({ connectedWallet: null }).catch(() => {});
+    }
+
     cachedSettings = await getSettings();
     isEnabled = cachedSettings.isEnabled !== false;
 
