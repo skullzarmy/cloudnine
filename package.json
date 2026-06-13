@@ -1,6 +1,6 @@
 {
     "name": "cloudnine",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "description": "Bluesky, cloudnine — buy Tezos NFTs from Teia and objkt inline on bsky.app. A FAFO Lab joint.",
     "private": true,
     "type": "module",
@@ -12,6 +12,7 @@
     "dependencies": {
         "@taquito/taquito": "^21.0.0",
         "@tezos-x/octez.connect-sdk": "^5.0.0-beta.6",
+        "qrcode-svg": "^1.1.0",
         "webextension-polyfill": "^0.12.0"
     },
     "devDependencies": {

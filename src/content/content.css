@@ -259,6 +259,99 @@
 .cn-modal-mini-danger { border-color: #f85149; color: #f85149; }
 .cn-modal-mini-danger:hover { background: rgba(248,81,73,0.1); }
 
+/* Headless wallet picker (our pairing UI) */
+.cn-pair { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; height: min(68vh, 560px); }
+.cn-pair-head { display: flex; align-items: center; justify-content: space-between; flex: none; }
+.cn-pair-title { font-size: 15px; font-weight: 700; color: #e6edf3; }
+.cn-pair-status { font-size: 12px; color: #8b949e; min-height: 16px; flex: none; text-align: center; }
+.cn-pair-status-on { color: #1d9bf0; }
+
+/* QR — pinned to the top ~40% of the picker, always visible */
+.cn-pair-qr-top {
+    flex: 0 0 40%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.cn-pair-qr {
+    position: relative;
+    width: min(190px, 52vw);
+    aspect-ratio: 1 / 1;
+    background: #fff;
+    padding: 8px;
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+.cn-pair-qr svg { display: block; width: 100%; height: 100%; }
+/* c9 mark in the QR centre — white backing keeps the modules behind it scannable
+   (QR is generated at ecl "H" to absorb the occlusion). */
+.cn-pair-qr-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24%;
+    height: 24%;
+    padding: 4px;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.cn-pair-qr-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.cn-pair-qr-tap { cursor: pointer; transition: transform 0.06s ease; }
+.cn-pair-qr-tap:active { transform: scale(0.97); }
+.cn-pair-qr-hint { font-size: 12px; color: #8b949e; text-align: center; }
+
+.cn-pair-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    background: #161b22;
+    color: #e6edf3;
+    font-size: 14px;
+    outline: none;
+    flex: none;
+}
+.cn-pair-search:focus { border-color: #1d9bf0; }
+.cn-pair-list {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    margin: 0 -4px;
+    padding: 0 4px;
+}
+.cn-pair-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #e6edf3;
+    cursor: pointer;
+    text-align: left;
+}
+.cn-pair-row:hover { background: #161b22; border-color: #30363d; }
+.cn-pair-row img { width: 30px; height: 30px; border-radius: 7px; object-fit: cover; flex: none; background: #1d242c; }
+.cn-pair-row-meta { display: flex; flex-direction: column; min-width: 0; }
+.cn-pair-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn-pair-badge { font-size: 11px; color: #8b949e; }
+.cn-pair-empty { color: #8b949e; font-size: 13px; padding: 14px 4px; text-align: center; }
+
 /* Status */
 .cn-modal-status {
     margin: 10px 0;

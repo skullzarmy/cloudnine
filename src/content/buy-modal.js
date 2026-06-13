@@ -17,12 +17,16 @@ import {
     NetworkType,
     TezosOperationType,
     PermissionScope,
+    BeaconEvent,
 } from "@tezos-x/octez.connect-sdk";
+
+import QRCode from "qrcode-svg";
 
 import { getDescriptorForListing, HEN_OBJKTS_FA2 } from "../lib/contracts.js";
 import { resolveListing } from "../lib/resolver.js";
 import { getSettings, setSettings, addPurchase } from "../lib/storage.js";
 import { shortAddr, formatTez, isTzAddress } from "../lib/format.js";
+import { loadWallets, OSLink, getTzip10Link } from "../lib/wallets.js";
 
 const TZKT_API = "https://api.tzkt.io/v1";
 const DEFAULT_RPC = "https://mainnet.smartpy.io";
@@ -32,12 +36,48 @@ const MODAL_HOST_ID = "cn-buy-modal-host";
 // Singletons — survive across modal opens within the same page session
 // ---------------------------------------------------------------------------
 
+// Headless pairing — Firefox content-script workaround ------------------------
+// octez.connect's own pairing dialog runs in a different JS realm than our
+// content script, so on Firefox it can't read the peer-info promises it's handed
+// ("Permission denied to access property 'then'") and web wallets never pair.
+// We override ONLY the PAIR_INIT event, read those promises in our own
+// compartment (verified working on Firefox), and render our own wallet chooser.
+// Every other default event/UI (permission, operation, success/error) is left
+// intact. See docs/octez-connect-firefox-issue.md.
+// The open modal registers a callback here so this module-scope handler can hand
+// the resolved sync codes back to it for rendering. Only one modal is open at a
+// time, so a single slot is enough.
+let _onPairInit = null;
+
+async function pairInitHandler(data) {
+    loadWallets(); // warm the wallet list while the transports connect
+    // These awaits are the whole point: they run in our content-script compartment
+    // (same realm that created the promises), where reading them is permitted —
+    // unlike the SDK's injected UI.
+    let p2pCode = "";
+    let postCode = "";
+    try { p2pCode = await data.p2pPeerInfo; }
+    catch (e) { console.warn("Cloudnine pairing: P2P sync code unavailable", e); }
+    try { postCode = await data.postmessagePeerInfo; }
+    catch (e) { console.warn("Cloudnine pairing: postMessage sync code unavailable", e); }
+    _onPairInit?.({ p2pCode, postCode, abort: data.abortedHandler });
+}
+
 let _client = null;
 function getClient() {
     if (!_client) {
         _client = new DAppClient({
             name: "Cloudnine",
             network: { type: NetworkType.MAINNET },
+            // We never use WalletConnect — pairing here is postMessage/P2P only.
+            // The WC transport throws in Firefox's isolated content-script ("Xray")
+            // compartment. Skipping it leaves postMessage/P2P working on both
+            // browsers. See docs/octez-connect-firefox-issue.md.
+            disableWalletConnect: true,
+            // Replace only the pairing UI with our own headless chooser (above).
+            eventHandlers: {
+                [BeaconEvent.PAIR_INIT]: { handler: pairInitHandler },
+            },
         });
     }
     return _client;
@@ -237,6 +277,199 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
 
     function clearStatus() { q("cn-m-status")?.classList.add("hidden"); }
 
+    // --- Headless wallet chooser (replaces octez.connect's injected pairing UI) ---
+
+    // Children of the modal body we hide while the picker is up, restored on close.
+    let _pairHidden = [];
+
+    function removePairingPanel() {
+        dialog.querySelector("#cn-m-pair")?.remove();
+        for (const el of _pairHidden) el.style.display = "";
+        _pairHidden = [];
+    }
+
+    // Full wallet picker — parity with octez.connect's built-in dialog, populated
+    // from the same wallet registry (see ../lib/wallets.js). We render it instead
+    // of the SDK's UI only because that UI can't read the pairing promises from a
+    // Firefox content script; the connect actions below mirror the SDK's per-type
+    // handling (extension postMessage / web + desktop tzip10 link / QR).
+    async function renderPairingPanel({ p2pCode, postCode, abort }) {
+        removePairingPanel();
+        const body = dialog.querySelector(".cn-modal-body");
+        if (!body) return;
+
+        _pairHidden = Array.from(body.children);
+        for (const el of _pairHidden) el.style.display = "none";
+
+        const panel = document.createElement("div");
+        panel.id = "cn-m-pair";
+        panel.className = "cn-pair";
+        panel.innerHTML = `
+            <div class="cn-pair-head">
+                <span class="cn-pair-title">Connect a wallet</span>
+                <button class="cn-modal-mini" id="cn-pair-cancel">Cancel</button>
+            </div>
+            <div class="cn-pair-qr-top">
+                <div class="cn-pair-qr" id="cn-pair-qr"></div>
+                <div class="cn-pair-qr-hint" id="cn-pair-qr-hint"></div>
+            </div>
+            <div class="cn-pair-status" id="cn-pair-status"></div>
+            <input class="cn-pair-search" id="cn-pair-search" type="text"
+                   placeholder="Search wallets…" autocomplete="off" spellcheck="false" />
+            <div class="cn-pair-list" id="cn-pair-list">
+                <div class="cn-pair-empty">Loading wallets…</div>
+            </div>
+        `;
+        body.appendChild(panel);
+
+        const pstatus = (text, on = false) => {
+            const el = panel.querySelector("#cn-pair-status");
+            if (el) {
+                el.textContent = text || "";
+                el.classList.toggle("cn-pair-status-on", !!text && on);
+            }
+        };
+
+        panel.querySelector("#cn-pair-cancel").addEventListener("click", () => {
+            removePairingPanel();
+            try { abort?.(); } catch { /* ignore */ }
+        });
+
+        const openTab = (url) => {
+            // Plain anchor — never touch the new tab's .opener (that was the Firefox
+            // SecurityError in the SDK's own redirect path).
+            const a = document.createElement("a");
+            a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+            a.click();
+        };
+
+        // --- QR, always visible at the top -----------------------------------
+        const isMobile =
+            window.matchMedia?.("(any-pointer:coarse)")?.matches ||
+            /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const tezosLink = getTzip10Link("tezos://", p2pCode);
+        const qrEl = panel.querySelector("#cn-pair-qr");
+        const qrHint = panel.querySelector("#cn-pair-qr-hint");
+        if (p2pCode) {
+            qrEl.innerHTML = new QRCode({
+                content: tezosLink,
+                padding: 0, width: 190, height: 190,
+                color: "#000000", background: "#ffffff",
+                // High error correction so the centre c9 logo doesn't break scans.
+                ecl: "H",
+                // viewBox output so the drawing scales + centers inside the
+                // responsive white box (plain "svg" anchors it top-left).
+                container: "svg-viewbox",
+            }).svg();
+            const qrLogo = document.createElement("div");
+            qrLogo.className = "cn-pair-qr-logo";
+            const qrLogoImg = document.createElement("img");
+            qrLogoImg.src = chrome.runtime.getURL("public/icons/cloud9-logo.svg");
+            qrLogoImg.alt = "";
+            qrLogo.appendChild(qrLogoImg);
+            qrEl.appendChild(qrLogo);
+            if (isMobile) {
+                // No second device to scan with — tapping fires the tezos: deep
+                // link so the OS opens whichever wallet is set to handle it (or
+                // shows its app picker).
+                qrEl.classList.add("cn-pair-qr-tap");
+                qrEl.setAttribute("role", "button");
+                qrEl.setAttribute("tabindex", "0");
+                qrEl.title = "Open in your wallet app";
+                const openNative = () => {
+                    const a = document.createElement("a");
+                    a.href = tezosLink;
+                    a.click();
+                    pstatus("Opening your wallet app…", true);
+                };
+                qrEl.addEventListener("click", openNative);
+                qrEl.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNative(); }
+                });
+                qrHint.textContent = "Tap to open your wallet — or scan from another device";
+            } else {
+                qrHint.textContent = "Scan with a mobile wallet, or pick one below";
+            }
+        } else {
+            qrHint.textContent = "Pairing code unavailable — pick a wallet below";
+        }
+
+        const connect = (w) => {
+            if (w.types.includes("extension")) {
+                // Mirror the SDK's extension handshake from our own code, so the
+                // sync code never crosses the compartment boundary. Post to both
+                // the Chrome and Firefox extension ids; only the right one answers.
+                for (const targetId of [w.id, w.firefoxId].filter(Boolean)) {
+                    window.postMessage(
+                        { target: "toExtension", payload: postCode, targetId },
+                        window.location.origin,
+                    );
+                }
+                pstatus(`Approve the connection in ${w.name}…`, true);
+            } else if (w.links[OSLink.WEB]) {
+                openTab(getTzip10Link(w.links[OSLink.WEB], p2pCode));
+                pstatus(`Continue in the ${w.name} tab, then come back…`, true);
+            } else if (isMobile && (w.deepLink || w.links[OSLink.IOS])) {
+                // Open the wallet's own mobile deep link directly.
+                const a = document.createElement("a");
+                a.href = getTzip10Link(w.deepLink || w.links[OSLink.IOS], p2pCode);
+                a.click();
+                pstatus(`Opening ${w.name}…`, true);
+            } else if (w.links[OSLink.DESKTOP]) {
+                openTab(getTzip10Link(w.links[OSLink.DESKTOP], p2pCode));
+                pstatus(`Opening ${w.name}…`, true);
+            } else {
+                pstatus(`Scan the QR above with ${w.name}.`);
+            }
+        };
+
+        let wallets = [];
+        function renderList(filter = "") {
+            const list = panel.querySelector("#cn-pair-list");
+            if (!list) return;
+            const f = filter.trim().toLowerCase();
+            const shown = f ? wallets.filter((w) => w.name.toLowerCase().includes(f)) : wallets;
+            if (!shown.length) {
+                list.innerHTML = `<div class="cn-pair-empty">No matching wallets.</div>`;
+                return;
+            }
+            list.innerHTML = "";
+            for (const w of shown) {
+                const badge =
+                    w.types.includes("extension") ? "Browser extension"
+                    : w.types.includes("web") ? "Web wallet"
+                    : w.types.includes("desktop") ? "Desktop app"
+                    : "Mobile";
+                const row = document.createElement("button");
+                row.className = "cn-pair-row";
+                row.innerHTML = `
+                    ${w.image ? `<img src="${w.image}" alt="" />` : `<span class="cn-pair-row-fb"></span>`}
+                    <span class="cn-pair-row-meta">
+                        <span class="cn-pair-name"></span>
+                        <span class="cn-pair-badge">${badge}</span>
+                    </span>`;
+                row.querySelector(".cn-pair-name").textContent = w.name;
+                row.addEventListener("click", () => connect(w));
+                list.appendChild(row);
+            }
+        }
+
+        panel.querySelector("#cn-pair-search")
+            .addEventListener("input", (e) => renderList(e.target.value));
+
+        try {
+            wallets = await loadWallets();
+        } catch (e) {
+            console.warn("Cloudnine pairing: wallet list failed to load", e);
+        }
+        // Bail if the user cancelled while we were loading.
+        if (!dialog.querySelector("#cn-m-pair")) return;
+        renderList();
+    }
+
+    // Let the module-scope PAIR_INIT handler drive this modal's chooser.
+    _onPairInit = renderPairingPanel;
+
     function showOpHash(hash) {
         const a = q("cn-m-ophash");
         if (a) { a.textContent = hash.slice(0, 10) + "…" + hash.slice(-6); a.href = `https://tzkt.io/${hash}`; a.title = hash; }
@@ -375,17 +608,20 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
     // --- Button handlers ---
 
     async function onConnect() {
-        const backdrop = document.getElementById(MODAL_HOST_ID);
         clearStatus();
         try {
             const existing = await client.getActiveAccount();
             if (!existing) {
-                // Hide our modal so the wallet picker isn't blocked by our backdrop.
-                if (backdrop) backdrop.style.visibility = "hidden";
+                // requestPermissions() fires PAIR_INIT → pairInitHandler →
+                // renderPairingPanel (our in-modal chooser). It resolves once the
+                // chosen wallet responds over postMessage/P2P.
+                setStatus("Preparing wallet connection…");
                 await client.requestPermissions({
                     scopes: [PermissionScope.OPERATION_REQUEST],
                 });
             }
+            removePairingPanel();
+            clearStatus();
             const account = await client.getActiveAccount();
             activeAddress = account?.address ?? null;
             renderWallet(activeAddress);
@@ -393,9 +629,9 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
             // Sync to chrome.storage so popup can show connected wallet
             setSettings({ connectedWallet: activeAddress }).catch(() => {});
         } catch (err) {
-            if (!isAbort(err)) setStatus(`Connection failed: ${err?.message || err}`, "error");
-        } finally {
-            if (backdrop) backdrop.style.visibility = "visible";
+            removePairingPanel();
+            if (isAbort(err)) clearStatus();
+            else setStatus(`Connection failed: ${err?.message || err}`, "error");
         }
     }
 
@@ -499,6 +735,35 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
         if (actions.children.length) statusEl.appendChild(actions);
     }
 
+    // Waiting view shown while a non-extension wallet (QR / mobile / web) signs.
+    // Unlike the Temple browser extension — whose popup overlaps our modal, so we
+    // hide ours — these approve elsewhere, so we keep the modal up. No Cancel: the
+    // request is already in the wallet and Beacon gives us no way to recall it, so
+    // offering one would be a lie. Returns a close() that restores the modal body.
+    let _signHidden = [];
+    function showSigningWait() {
+        const body = dialog.querySelector(".cn-modal-body");
+        if (!body) return () => {};
+        _signHidden = Array.from(body.children).filter((c) => c.style.display !== "none");
+        for (const el of _signHidden) el.style.display = "none";
+
+        const panel = document.createElement("div");
+        panel.id = "cn-m-signing";
+        panel.className = "cn-modal-pending";
+        panel.innerHTML = `
+            <div class="cn-modal-pending-spinner"></div>
+            <div class="cn-modal-pending-title">Waiting for approval…</div>
+            <div class="cn-modal-pending-sub">Approve the transaction in your wallet.</div>
+        `;
+        body.appendChild(panel);
+
+        return function closeSigningWait() {
+            dialog.querySelector("#cn-m-signing")?.remove();
+            for (const el of _signHidden) el.style.display = "";
+            _signHidden = [];
+        };
+    }
+
     async function onBuy() {
         if (!liveListing) return;
         if (!activeAddress) {
@@ -544,10 +809,22 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
                 ? contract.methodsObject[desc.entrypoint](argSpec).toTransferParams({ amount: Number(liveListing.price_mutez), mutez: true })
                 : contract.methods[desc.entrypoint](argSpec).toTransferParams({ amount: Number(liveListing.price_mutez), mutez: true });
 
-            // Hide modal while wallet signs
+            // How the wallet is paired decides how we wait. The Temple browser
+            // extension opens a popup that overlaps our modal (and used to fight
+            // it), so for extension wallets we hide ours. QR / mobile / web wallets
+            // approve elsewhere, so we keep the modal up with a cancellable
+            // "Waiting for approval…" view instead.
+            const acct = await client.getActiveAccount();
+            const isExtensionWallet = acct?.origin?.type === "extension";
             const backdrop = document.getElementById(MODAL_HOST_ID);
-            if (backdrop) backdrop.style.visibility = "hidden";
-            setStatus("Waiting for wallet…");
+
+            let closeWait = null;
+            if (isExtensionWallet) {
+                if (backdrop) backdrop.style.visibility = "hidden";
+                setStatus("Waiting for wallet…");
+            } else {
+                closeWait = showSigningWait();
+            }
 
             let result;
             try {
@@ -560,7 +837,11 @@ async function initLogic(dialog, { parsed, listing: initialListing, settings }) 
                     }],
                 });
             } finally {
-                if (backdrop) backdrop.style.visibility = "visible";
+                if (isExtensionWallet) {
+                    if (backdrop) backdrop.style.visibility = "visible";
+                } else {
+                    closeWait?.();
+                }
             }
 
             const opHash = result.transactionHash;

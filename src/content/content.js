@@ -178,50 +178,63 @@ async function handleAnchor(anchor, parsed) {
 // ---------------------------------------------------------------------------
 
 /**
- * Walk up from `node` to find the nearest feed/thread post container.
+ * Per-site DOM adapters. The link parsing, scanning, and modal are host-agnostic;
+ * only WHERE the Buy button lands within a post differs per client. Each adapter
+ * is a CSS selector for the post container plus a selector that marks the post's
+ * action row (reply/like/repost) — used to slot the button between the post body
+ * and that row. Sites not listed use the bsky-style heuristics, and the generic
+ * fallbacks below keep things working even when nothing matches.
  *
- * bsky.app (May 2026):
- *   - Home/profile feed: data-testid="feedItem-by-{handle}"
- *   - Thread view:       data-testid="postThreadItem-by-{handle}"
- *   - Fallback:          <article>
- *
- * Depth limit is generous (30) — bsky's React Native Web render tree is deep.
+ *   bsky.app  — React Native Web; stable data-testid hooks.
+ *   ovoid.at  — Tezos-focused atproto (AT) client/PWA; selectors are a best-effort
+ *               guess refined against live DOM, with the generic fallback as net.
+ */
+const SITE_ADAPTERS = {
+    "bsky.app": {
+        container: '[data-testid^="feedItem-by-"],[data-testid^="postThreadItem-by-"],article',
+        actions: '[data-testid="replyBtn"],[data-testid="likeBtn"],[data-testid="repostBtn"]',
+    },
+    "ovoid.at": {
+        container: 'article,[role="article"],[data-testid^="post"],[data-testid^="feedItem"]',
+        actions: '[aria-label*="repl" i],[aria-label*="like" i],[aria-label*="repost" i],'
+            + '[data-testid*="reply" i],[data-testid*="like" i],[data-testid*="repost" i]',
+    },
+};
+
+function siteAdapter() {
+    return SITE_ADAPTERS[location.hostname] ?? SITE_ADAPTERS["bsky.app"];
+}
+
+/**
+ * Walk up from `node` to find the nearest feed/thread post container, per the
+ * active site adapter. Depth limit is generous (30) — these client render trees
+ * are deep. Returns null if none found (caller falls back to the anchor).
  */
 function findPostContainer(node) {
+    const { container } = siteAdapter();
     let cur = node.parentElement;
     for (let i = 0; i < 30 && cur; i++) {
-        if (cur.matches?.('[data-testid^="feedItem-by-"],[data-testid^="postThreadItem-by-"],article')) {
-            return cur;
-        }
+        if (cur.matches?.(container)) return cur;
         cur = cur.parentElement;
     }
     return null;
 }
 
 /**
- * Walk up from `anchor` until we find the element whose NEXT SIBLING contains
- * bsky's action buttons (replyBtn / likeBtn / repostBtn). That element is the
- * "post body" section — inserting our wrapper after it puts the Buy button
- * between the content and the action row.
- *
- * Confirmed injection points (live inspection):
- *   Feed:   contentHider-post  → next sib has actions ✓
- *   Thread: unnamed contentDiv → next sib has actions ✓
- *
- * Falls back to firstChildOf(container, anchor) if no action sibling is found.
+ * Walk up from `anchor` until we find the element whose NEXT SIBLING contains the
+ * post's action buttons (reply/like/repost, per the adapter). That element is the
+ * "post body" section — inserting after it puts the Buy button between the content
+ * and the action row. Falls back to the direct child of `container` holding the
+ * anchor if no action sibling is found.
  */
 function findInjectionPoint(anchor, container) {
+    const { actions } = siteAdapter();
     let cur = anchor;
     while (cur && cur !== container) {
         const parent = cur.parentElement;
         if (!parent || parent === container) break;
         for (const sib of parent.children) {
-            if (
-                sib !== cur &&
-                sib.querySelector(
-                    '[data-testid="replyBtn"],[data-testid="likeBtn"],[data-testid="repostBtn"]'
-                )
-            ) {
+            if (sib !== cur && sib.querySelector(actions)) {
                 return cur;
             }
         }
