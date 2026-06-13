@@ -1,31 +1,28 @@
 /**
  * Wallet-list pipeline for our headless pairing picker.
  *
- * This mirrors octez.connect-ui's `useWallets` hook so our own picker shows the
- * same wallets and connect methods as the SDK's built-in dialog — without us
- * hand-maintaining a wallet list. Data comes from the SDK's bundled registry
- * (instant) with a best-effort refresh from the same GitHub/jsDelivr source the
- * SDK uses. We render our own UI only because the SDK's dialog can't read the
- * pairing promises from a Firefox content script (see
- * docs/octez-connect-firefox-issue.md); the wallet *data/logic* is reused.
+ * The wallet list comes from the octez.connect SDK we already ship: the
+ * DAppClient populates octez.connect-ui's list getters from its own compiled
+ * Tezos registry (@tezos-x/octez.connect-blockchain-tezos). We read those
+ * getters and reuse the SDK's merge logic, so our picker shows exactly the
+ * wallets the installed SDK version knows about — no airgap fetch, no CDN, no
+ * separate snapshot to go stale. We render our own UI only because the SDK's
+ * built-in dialog can't read the pairing promises from a Firefox content script.
  *
- * Vendored (not imported) from @tezos-x/octez.connect-ui/src/utils/wallets.ts
- * because that module isn't part of the package's public exports.
+ * The merge/transform helpers below are vendored from
+ * @tezos-x/octez.connect-ui/src/utils/wallets.ts (not part of its public exports).
  */
 
-// Our own copy of the canonical Beacon wallet registry (originally from
-// airgap-it/beacon-wallet-list, the same source the SDK ships). Bundled so the
-// build needs nothing beyond published npm packages; refreshed at runtime from
-// the CDN below. Keeping it local also means we don't depend on a wallet-list
-// export path that only exists in unreleased SDK builds.
-import bundledRegistry from "./wallet-registry.json";
+import {
+    getExtensionList,
+    getWebList,
+    getDesktopList,
+    getiOSList,
+} from "@tezos-x/octez.connect-ui";
 
 // Indices into MergedWallet.links — mirrors octez.connect-ui's OSLink enum.
 export const OSLink = { WEB: 0, IOS: 1, DESKTOP: 2, EXTENSION: 3 };
 
-const JSDELIVR_URL =
-    "https://cdn.jsdelivr.net/gh/airgap-it/beacon-wallet-list@latest/dist/tezos.json";
-const FETCH_TIMEOUT_MS = 5000;
 // Same default featured ordering the SDK uses.
 const FEATURED = ["kukai", "temple", "plenty", "umami"];
 
@@ -150,30 +147,44 @@ function toMergedWallets(reg, availableExtensions) {
     return arrangeTopWallets(merged, FEATURED);
 }
 
-async function fetchGithubRegistry() {
-    try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-        const res = await fetch(JSDELIVR_URL, { signal: ctrl.signal, cache: "default" });
-        clearTimeout(t);
-        return res.ok ? await res.json() : null;
-    } catch {
-        return null; // offline / blocked → fall back to bundled
+/**
+ * Read the SDK's per-OS wallet lists. The DAppClient fills these getters from its
+ * compiled Tezos registry when it initialises its blockchain; the picker only
+ * opens during a pairing request (after the client exists), so they're normally
+ * ready — but poll briefly in case the modal wins the race.
+ */
+async function readSdkRegistry() {
+    for (let i = 0; i < 20; i++) {
+        const extensionList = getExtensionList() || [];
+        const webList = getWebList() || [];
+        if (extensionList.length || webList.length) {
+            return {
+                extensionList,
+                webList,
+                desktopList: getDesktopList() || [],
+                iOSList: getiOSList() || [],
+            };
+        }
+        await new Promise((r) => setTimeout(r, 50));
     }
+    return {
+        extensionList: getExtensionList() || [],
+        webList: getWebList() || [],
+        desktopList: getDesktopList() || [],
+        iOSList: getiOSList() || [],
+    };
 }
 
 let _walletsPromise = null;
 
 /**
- * Resolve the merged wallet list once per page session. Uses the freshest data
- * available — the canonical GitHub/CDN list if reachable, else our bundled copy.
+ * Resolve the merged wallet list once per page session, from the installed SDK's
+ * own registry. If it's somehow empty the picker still shows the QR, which pairs
+ * any wallet without needing the list.
  */
 export function loadWallets() {
     if (!_walletsPromise) {
-        _walletsPromise = (async () => {
-            const github = await fetchGithubRegistry();
-            return toMergedWallets(github || bundledRegistry, []);
-        })();
+        _walletsPromise = (async () => toMergedWallets(await readSdkRegistry(), []))();
     }
     return _walletsPromise;
 }
