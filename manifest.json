@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Cloudnine",
     "short_name": "Cloudnine",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Buy Tezos NFTs (Teia, objkt) inline on bsky.app and ovoid.at — a FAFO Lab joint.",
     "permissions": ["storage", "scripting"],
     "host_permissions": [
