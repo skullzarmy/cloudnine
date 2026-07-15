@@ -1,9 +1,13 @@
 /* Cloudnine — injected styles for the Buy button on bsky.app
  *
- * Placement: .cn-buy-wrap is inserted immediately after the post's content
- * section (contentHider-post in feed / unnamed contentDiv in thread), before
- * the reply/like/repost action row. This puts the button visually below the
- * link card and above the action icons.
+ * Placement (see src/content/content.js for the logic):
+ *   - Single-link posts: .cn-buy-wrap is inserted immediately after the
+ *     post's content section (contentHider-post in feed / unnamed contentDiv
+ *     in thread), before the reply/like/repost action row — below the link
+ *     card, above the action icons.
+ *   - Multi-link posts: one .cn-buy-wrap per link, inserted right after that
+ *     link's anchor. display:block is what puts it on its own line under
+ *     the link — no float or absolute positioning needed for that part.
  *
  * z-index: bsky renders a transparent position:fixed full-viewport overlay
  * for post-click navigation. We set position:relative + z-index on the wrap

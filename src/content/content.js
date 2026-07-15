@@ -3,8 +3,15 @@
  *
  * Watches the feed for link cards / inline anchors pointing at supported Tezos
  * marketplaces (Teia, objkt). For each one, resolves the cheapest active
- * listing and injects a "Buy X ꜩ" button into the post, placed between the
- * post content (text / link card) and the action buttons row.
+ * listing and injects a "Buy X ꜩ" button into the post.
+ *
+ * Placement depends on how many marketplace links the post contains:
+ *   - One link: button goes between the post content (text / link card) and
+ *     the action buttons row (see findInjectionPoint()).
+ *   - Multiple links: each button is inserted as a block-level sibling right
+ *     after its own anchor, so it lands directly under that link instead of
+ *     all buttons stacking together at the bottom with no link association
+ *     (see countMarketplaceLinks()).
  *
  * Confirmed DOM shape (live inspection May 2026):
  *
@@ -155,9 +162,19 @@ async function handleAnchor(anchor, parsed) {
     const tokenKey = `${parsed.source}:${parsed.fa_contract ?? ""}:${parsed.token_id}`;
     if (scopeEl?.querySelector(`.${BUTTON_CLASS}[data-token-key="${cssEscape(tokenKey)}"]`)) return;
 
-    // Find the element to insert the button after — the post-body section
-    // whose next sibling is the action buttons row.
-    const injectAfter = container ? findInjectionPoint(anchor, container) : anchor;
+    // Single-link posts: drop the button after the post body, before the
+    // action row (findInjectionPoint). Multi-link posts: every link would
+    // otherwise resolve to that same spot and stack all buttons together,
+    // losing which button buys which link — so instead insert each button
+    // as a block-level sibling immediately after its own anchor. A block
+    // element next to inline content naturally starts its own line; no
+    // float/absolute-position trick needed to get "under the link".
+    const isMultiLink = countMarketplaceLinks(scopeEl) > 1;
+    const injectAfter = isMultiLink
+        ? anchor
+        : container
+            ? findInjectionPoint(anchor, container)
+            : anchor;
 
     // Placeholder while the listing resolves.
     const btn = insertButton(injectAfter, tokenKey, { state: "loading" });
@@ -239,6 +256,20 @@ const SITE_ADAPTERS = {
 
 function siteAdapter() {
     return SITE_ADAPTERS[location.hostname] ?? SITE_ADAPTERS["bsky.app"];
+}
+
+/**
+ * Count how many anchors within `scopeEl` parse as supported marketplace
+ * links. Used to tell single-link posts (button goes at the bottom, by the
+ * action row) from multi-link posts (each button goes right under its link).
+ */
+function countMarketplaceLinks(scopeEl) {
+    if (!scopeEl) return 1;
+    let count = 0;
+    for (const a of scopeEl.querySelectorAll("a[href]")) {
+        if (parseMarketplaceUrl(a.getAttribute("href"))) count++;
+    }
+    return count;
 }
 
 /**
