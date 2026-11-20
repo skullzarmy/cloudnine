@@ -10,17 +10,20 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@taquito/taquito": "^21.0.0",
-        "@tezos-x/octez.connect-sdk": "4.8.5",
-        "@tezos-x/octez.connect-ui": "4.8.5",
+        "@taquito/taquito": "^25.1.1",
+        "@tezos-x/octez.connect-sdk": "5.0.5",
+        "@tezos-x/octez.connect-ui": "5.0.5",
         "qrcode-svg": "^1.1.0",
         "webextension-polyfill": "^0.12.0"
     },
     "devDependencies": {
-        "@crxjs/vite-plugin": "^2.0.0-beta.25",
-        "vite": "^5.4.0",
+        "@crxjs/vite-plugin": "^2.7.1",
+        "vite": "^8.3.8",
         "vite-plugin-node-polyfills": "^0.28.0"
     },
     "author": "skllzrmy.tez / FAFO Lab",
-    "license": "Unlicense"
+    "license": "Unlicense",
+    "overrides": {
+        "decode-uri-component": "0.5.1"
+    }
 }
